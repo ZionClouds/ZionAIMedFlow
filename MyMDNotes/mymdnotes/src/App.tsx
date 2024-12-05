@@ -7,38 +7,6 @@ import { MsalProvider } from "msal-community-solid";
 const BASE_URL = "http://127.0.0.1:8000/"; // replace with the actual base URL
 
 // Auth logic moved into a function
-const authenticateUser = async () => {
-  const loginRequest = {
-    scopes: ["user.read"], // optional Array<string>
-  };
-
-  try {
-    // First, wait for the previous interaction to complete
-    await msalInstance.handleRedirectPromise();
-
-    // Check if accounts are available (i.e., user is signed in)
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length === 0) {
-      // If no accounts are found, initiate the loginRedirect flow
-      await msalInstance.loginRedirect(loginRequest);
-    }
-  } catch (err) {
-    console.error("Login failed:", err);
-  }
-};
-
-// Function to handle the redirect response after the page reloads
-const handleRedirectResponse = async () => {
-  try {
-    const loginResponse = await msalInstance.handleRedirectPromise();
-    if (loginResponse) {
-      console.log("Access token:", loginResponse.accessToken);
-    }
-  } catch (error) {
-    console.error("Error handling redirect:", error);
-  }
-};
-
 export interface INote {
   pid: string;
   id: string;
@@ -52,8 +20,8 @@ export interface INote {
 }
 
 function App() {
-  const [authorized] = createSignal(true);
-  const [user] = createSignal({ name: 'Jane Marie Doe, MD', id: 'jmdoe', email: 'jmdoe@mdpartners.com' });
+  const [authorized, setAuthorized] = createSignal(false);
+  const [user, setUser] = createSignal({ name: 'Lightning McQueen, MD', id: 'jmdoe', email: 'jmdoe@mdpartners.com' });
   const [file, setFile] = createSignal<File | null>(null);
   const [uploading, setUploading] = createSignal(false);
   const [notes, setNotes] = createSignal<INote[]>([]);
@@ -62,7 +30,44 @@ function App() {
   const [selectedTarget, setSelectedTarget] = createSignal('transcription');
 
   // Run authentication and handle redirect response on component mount
+  const authenticateUser = async () => {
+    const loginRequest = {
+      scopes: ["user.read"], // optional Array<string>
+    };
+  
+    try {
+      // First, wait for the previous interaction to complete
+      await msalInstance.handleRedirectPromise();
+  
+      // Check if accounts are available (i.e., user is signed in)
+      const accounts = msalInstance.getAllAccounts();
+      //console.log(accounts[0]['name']);
+      if (accounts.length === 0) {
+        // If no accounts are found, initiate the loginRedirect flow
+        await msalInstance.loginRedirect(loginRequest);
+      }
+      const account = accounts[0]; // Assuming the first account is the active user
+      setUser({ name: String(account.name), id: 'ygundela', email: String(account.username) });
+      setAuthorized(true);
+    } catch (err) {
+      console.error("Login failed:", err);
+    }
+  };
+  
+  // Function to handle the redirect response after the page reloads
+  const handleRedirectResponse = async () => {
+    try {
+      const loginResponse = await msalInstance.handleRedirectPromise();
+      if (loginResponse) {
+        console.log("Access token:", loginResponse.accessToken);
+      }
+    } catch (error) {
+      console.error("Error handling redirect:", error);
+    }
+  };
+
   createEffect(() => {
+    
     const initiateAuth = async () => {
       // Handle the redirect response after page reload
       await handleRedirectResponse();
@@ -71,7 +76,9 @@ function App() {
       await authenticateUser();
     };
 
+
     initiateAuth();
+
   });
 
   const uploadFile = async (file: File) => {
@@ -166,7 +173,7 @@ function App() {
   return (
     <>
       <MsalProvider instance={msalInstance}>
-        <Header authorized={authorized()} />
+        <Header user={user().name} auth= {authorized()} />
         <Main
           file={file()}
           isUploading={uploading()}
